@@ -1294,6 +1294,65 @@ namespace video {
     LIMITED_GOP_SIZE | PARALLEL_ENCODING | NO_RC_BUF_LIMIT
   };
 
+  /**
+   * @brief V4L2 memory-to-memory encoders, fed NV12 frames from system memory.
+   *
+   * Covers stateful hardware encoders exposed through V4L2, such as DroidDeck's emulated
+   * /dev/video-enc0 that forwards to Android's MediaCodec.
+   */
+  encoder_t v4l2m2m {
+    "v4l2m2m"sv,
+    std::make_unique<encoder_platform_formats_avcodec>(
+      AV_HWDEVICE_TYPE_NONE,
+      AV_HWDEVICE_TYPE_NONE,
+      AV_PIX_FMT_NONE,
+      AV_PIX_FMT_NV12,
+      AV_PIX_FMT_NONE,
+      AV_PIX_FMT_NONE,
+      AV_PIX_FMT_NONE,
+      nullptr
+    ),
+    {
+      {},  // Common options
+      {},  // SDR-specific options
+      {},  // HDR-specific options
+      {},  // YUV444 SDR-specific options
+      {},  // YUV444 HDR-specific options
+      {},  // Fallback options
+      {},  // No AV1 V4L2 encoder is probed
+      {},  // capabilities
+    },
+    {
+      // Common options
+      {
+        {"num_output_buffers"s, 4},
+        {"num_capture_buffers"s, 4},
+      },
+      {},  // SDR-specific options
+      {},  // HDR-specific options
+      {},  // YUV444 SDR-specific options
+      {},  // YUV444 HDR-specific options
+      {},  // Fallback options
+      "hevc_v4l2m2m"s,
+      {},  // capabilities
+    },
+    {
+      // Common options
+      {
+        {"num_output_buffers"s, 4},
+        {"num_capture_buffers"s, 4},
+      },
+      {},  // SDR-specific options
+      {},  // HDR-specific options
+      {},  // YUV444 SDR-specific options
+      {},  // YUV444 HDR-specific options
+      {},  // Fallback options
+      "h264_v4l2m2m"s,
+      {},  // capabilities
+    },
+    LIMITED_GOP_SIZE | PARALLEL_ENCODING | NO_RC_BUF_LIMIT
+  };
+
   #ifdef SUNSHINE_BUILD_VULKAN
   encoder_t vulkan {
     "vulkan"sv,
@@ -1461,6 +1520,7 @@ namespace video {
     &vulkan,
   #endif
     &vaapi,
+    &v4l2m2m,
 #endif
 #ifdef __APPLE__
     &videotoolbox,

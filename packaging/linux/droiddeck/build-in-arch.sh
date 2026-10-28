@@ -19,6 +19,8 @@ git config --global --add safe.directory '*'
 git submodule update --recursive --init --depth 1
 
 export CFLAGS="-O2 -pipe" CXXFLAGS="-O2 -pipe"
+# A dated version in Sunshine's own scheme, so the web UI does not offer the upstream release as an update.
+export BRANCH=droiddeck BUILD_VERSION="v$(date -u +%Y.%-m%d.%H%M%S)"
 cmake -S . -B build -Wno-dev \
   -D CMAKE_BUILD_TYPE=Release \
   -D CMAKE_INSTALL_PREFIX=/usr/local \
@@ -40,6 +42,8 @@ strip --strip-unneeded out/usr/local/bin/sunshine* || true
 # The runtime has every library Sunshine links except miniupnpc; it ships beside the binary.
 mkdir -p out/usr/local/lib/sunshine
 cp -L /usr/lib/libminiupnpc.so.* out/usr/local/lib/sunshine/
+# Preloaded by the launcher: lists DroidDeck's emulated /dev/video-enc0 for FFmpeg's V4L2 M2M scan.
+gcc -O2 -shared -fPIC -Wall -Wextra -o out/usr/local/lib/sunshine/libsunshine-devenc.so packaging/linux/droiddeck/devenc.c -ldl -lpthread
 
 # Libraries the binary needs that the DroidDeck runtime may not have; informational, they are installed with pacman there.
 readelf -d out/usr/local/bin/sunshine | sed -n 's/.*NEEDED.*\[\(.*\)\]/\1/p' | sort -u > sunshine-needed.txt
