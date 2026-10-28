@@ -85,7 +85,7 @@ endif()
 # where capture queries the render node's PCI identity to choose between
 # zero-copy VRAM and the RAM bridge.
 if(${SUNSHINE_ENABLE_DRM} OR ${SUNSHINE_ENABLE_WAYLAND} OR ${SUNSHINE_ENABLE_VULKAN}
-   OR ${SUNSHINE_ENABLE_KWIN} OR ${SUNSHINE_ENABLE_PORTAL})
+   OR ${SUNSHINE_ENABLE_KWIN} OR ${SUNSHINE_ENABLE_PORTAL} OR ${SUNSHINE_ENABLE_GAMESCOPE})
     find_package(LIBDRM REQUIRED)
 else()
     set(LIBDRM_FOUND OFF)
@@ -260,7 +260,7 @@ if(GIO_FOUND)
 endif()
 
 # Pipewire
-if(${SUNSHINE_ENABLE_KWIN} OR ${SUNSHINE_ENABLE_PORTAL})
+if(${SUNSHINE_ENABLE_KWIN} OR ${SUNSHINE_ENABLE_PORTAL} OR ${SUNSHINE_ENABLE_GAMESCOPE})
     pkg_check_modules(PIPEWIRE libpipewire-0.3 REQUIRED)
 else()
     set(PIPEWIRE_FOUND OFF)
@@ -279,6 +279,13 @@ if(PIPEWIRE_FOUND AND GIO_FOUND AND ${SUNSHINE_ENABLE_PORTAL})
     add_compile_definitions(SUNSHINE_BUILD_PORTAL)
     list(APPEND PLATFORM_TARGET_FILES
             "${CMAKE_SOURCE_DIR}/src/platform/linux/portalgrab.cpp")
+endif()
+
+# gamescope's own PipeWire node (no portal, no Wayland session)
+if(PIPEWIRE_FOUND AND ${SUNSHINE_ENABLE_GAMESCOPE})
+    add_compile_definitions(SUNSHINE_BUILD_GAMESCOPE)
+    list(APPEND PLATFORM_TARGET_FILES
+            "${CMAKE_SOURCE_DIR}/src/platform/linux/gamescopegrab.cpp")
 endif()
 
 # KWin ScreenCast (direct Wayland protocol, bypasses portal)

@@ -1158,6 +1158,9 @@ namespace platf {
 #ifdef SUNSHINE_BUILD_PORTAL
       PORTAL,  ///< XDG PORTAL
 #endif
+#ifdef SUNSHINE_BUILD_GAMESCOPE
+      GAMESCOPE,  ///< gamescope's PipeWire node
+#endif
       MAX_FLAGS  ///< The maximum number of flags
     };
   }  // namespace source
@@ -1306,10 +1309,24 @@ namespace platf {
   }
 #endif
 
+#ifdef SUNSHINE_BUILD_GAMESCOPE
+  std::vector<std::string> gamescope_display_names();
+  std::shared_ptr<display_t> gamescope_display(mem_type_e hwdevice_type, const std::string &display_name, const video::config_t &config);
+
+  bool verify_gamescope() {
+    return !gamescope_display_names().empty();
+  }
+#endif
+
   /**
    * @brief List display names accepted by the selected capture backend.
    */
   std::vector<std::string> display_names(mem_type_e hwdevice_type) {
+#ifdef SUNSHINE_BUILD_GAMESCOPE
+    if (sources[source::GAMESCOPE]) {
+      return gamescope_display_names();
+    }
+#endif
 #ifdef SUNSHINE_BUILD_CUDA
     // display using NvFBC only supports mem_type_e::cuda
     if (sources[source::NVFBC] && hwdevice_type == mem_type_e::cuda) {
@@ -1385,6 +1402,12 @@ namespace platf {
     platf::kms::drop_drm_worker_privileges();
 #endif
 
+#ifdef SUNSHINE_BUILD_GAMESCOPE
+    if (sources[source::GAMESCOPE]) {
+      BOOST_LOG(info) << "Screencasting with gamescope's PipeWire node"sv;
+      return gamescope_display(hwdevice_type, display_name, config);
+    }
+#endif
 #ifdef SUNSHINE_BUILD_WAYLAND
     if (sources[source::WAYLAND]) {
       BOOST_LOG(info) << "Screencasting with Wayland's protocol"sv;
@@ -1463,6 +1486,11 @@ namespace platf {
         // Continue probing for fallback capture methods.
         selected_capture.clear();
       }
+    }
+#endif
+#ifdef SUNSHINE_BUILD_GAMESCOPE
+    if ((selected_capture.empty() || selected_capture == "gamescope") && verify_gamescope()) {
+      sources[source::GAMESCOPE] = true;
     }
 #endif
 #ifdef SUNSHINE_BUILD_CUDA

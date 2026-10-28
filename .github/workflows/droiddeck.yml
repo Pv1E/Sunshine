@@ -1,0 +1,33 @@
+name: DroidDeck build (aarch64)
+
+on:
+  push:
+    branches: [droiddeck]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the runtime's library list
+        run: curl -fsSL -o droiddeck-runtime-sonames.txt https://raw.githubusercontent.com/Pv1E/DroidDeck/main/tools/gamescope/runtime-sonames.txt || true
+      - name: Build in Arch Linux ARM
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/work" -w /work menci/archlinuxarm:base-devel bash packaging/linux/droiddeck/build-in-arch.sh
+          sudo chown -R "$(id -u):$(id -g)" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sunshine-droiddeck
+          path: |
+            sunshine-droiddeck.tzst
+            sunshine-droiddeck.tzst.sha256
+            sunshine-needed.txt
+            sunshine-missing.txt
+            sunshine-pacman-deps.txt
+          if-no-files-found: warn
