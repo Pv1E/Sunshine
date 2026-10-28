@@ -30,4 +30,5 @@ jobs:
             sunshine-needed.txt
             sunshine-missing.txt
             sunshine-pacman-deps.txt
+            sunshine.debug
           if-no-files-found: warn
