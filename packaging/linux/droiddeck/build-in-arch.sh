@@ -21,8 +21,8 @@ git submodule update --recursive --init --depth 1
 export CFLAGS="-O2 -pipe" CXXFLAGS="-O2 -pipe"
 cmake -S . -B build -Wno-dev \
   -D CMAKE_BUILD_TYPE=Release \
-  -D CMAKE_INSTALL_PREFIX=/usr \
-  -D SUNSHINE_EXECUTABLE_PATH=/usr/bin/sunshine \
+  -D CMAKE_INSTALL_PREFIX=/usr/local \
+  -D SUNSHINE_EXECUTABLE_PATH=/usr/local/bin/sunshine \
   -D SUNSHINE_ASSETS_DIR=share/sunshine \
   -D BUILD_DOCS=OFF \
   -D BUILD_TESTS=OFF \
@@ -35,10 +35,14 @@ cmake -S . -B build -Wno-dev \
 cmake --build build -j"$(nproc)"
 
 rm -rf out && DESTDIR="$WORK/out" cmake --install build
-strip --strip-unneeded out/usr/bin/sunshine* || true
+strip --strip-unneeded out/usr/local/bin/sunshine* || true
+
+# The runtime has every library Sunshine links except miniupnpc; it ships beside the binary.
+mkdir -p out/usr/local/lib/sunshine
+cp -L /usr/lib/libminiupnpc.so.* out/usr/local/lib/sunshine/
 
 # Libraries the binary needs that the DroidDeck runtime may not have; informational, they are installed with pacman there.
-readelf -d out/usr/bin/sunshine | sed -n 's/.*NEEDED.*\[\(.*\)\]/\1/p' | sort -u > sunshine-needed.txt
+readelf -d out/usr/local/bin/sunshine | sed -n 's/.*NEEDED.*\[\(.*\)\]/\1/p' | sort -u > sunshine-needed.txt
 if [ -f droiddeck-runtime-sonames.txt ]; then
   grep -vxFf droiddeck-runtime-sonames.txt sunshine-needed.txt > sunshine-missing.txt || true
   echo "not in the runtime:"; cat sunshine-missing.txt
