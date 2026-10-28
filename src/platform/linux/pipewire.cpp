@@ -356,10 +356,16 @@ namespace pipewire {
         }
 
         // Add fallback for memptr
-        for (const auto &fmt : format_map) {
-          auto format_param = build_format_parameter(&pod_builder, width, height, target_framerate, fmt.pw_format, nullptr, 0);
-          params[n_params] = format_param;
+        if (nv12_requested && !use_dmabuf) {
+          // Only NV12 is offered, or the compositor would pick its preferred RGB format first.
+          params[n_params] = build_format_parameter(&pod_builder, width, height, target_framerate, SPA_VIDEO_FORMAT_NV12, nullptr, 0);
           n_params++;
+        } else {
+          for (const auto &fmt : format_map) {
+            auto format_param = build_format_parameter(&pod_builder, width, height, target_framerate, fmt.pw_format, nullptr, 0);
+            params[n_params] = format_param;
+            n_params++;
+          }
         }
 
         // Connection via pipewire object serial if it is supported and the serial is valid (lower 32-bits != SPA_ID_INVALID, see also PW_KEY_OBJECT_SERIAL docs)
@@ -383,6 +389,20 @@ namespace pipewire {
 
       pw_thread_loop_unlock(loop);
       return result;
+    }
+
+    /**
+     * @brief Request NV12 frames in the given colorimetry on the memory path instead of RGB.
+     *
+     * The compositor then does the color conversion on the GPU, and the encoder only copies the planes.
+     *
+     * @param matrix YUV matrix the frames must use.
+     * @param range Video range the frames must use.
+     */
+    void request_nv12(spa_video_color_matrix matrix, spa_video_color_range range) {
+      nv12_requested = true;
+      nv12_matrix = matrix;
+      nv12_range = range;
     }
 
     /**
@@ -716,6 +736,9 @@ namespace pipewire {
     uint32_t node;
     uint64_t object_serial;
     bool negotiate_maxframerate_ = true;
+    bool nv12_requested = false;  ///< Whether the memory path asks for NV12 instead of RGB.
+    spa_video_color_matrix nv12_matrix = SPA_VIDEO_COLOR_MATRIX_BT709;  ///< YUV matrix requested with NV12.
+    spa_video_color_range nv12_range = SPA_VIDEO_COLOR_RANGE_16_235;  ///< Video range requested with NV12.
 
     struct spa_pod *build_format_parameter(struct spa_pod_builder *b, uint32_t width, uint32_t height, AVRational target_framerate, int32_t format, uint64_t *modifiers, int n_modifiers) {
       struct spa_pod_frame object_frame;
@@ -743,6 +766,11 @@ namespace pipewire {
       } else {
         // Request target framerate (target_framerate) for framerate in fallback case
         spa_pod_builder_add(b, SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&framerates[0]), 0);
+      }
+
+      if (format == SPA_VIDEO_FORMAT_NV12) {
+        spa_pod_builder_add(b, SPA_FORMAT_VIDEO_colorMatrix, SPA_POD_Id(nv12_matrix), 0);
+        spa_pod_builder_add(b, SPA_FORMAT_VIDEO_colorRange, SPA_POD_Id(nv12_range), 0);
       }
 
       if (format == SPA_VIDEO_FORMAT_xBGR_210LE) {

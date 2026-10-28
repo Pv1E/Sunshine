@@ -16,6 +16,7 @@
 #include "pipewire.cpp"
 #include "src/platform/common.h"
 #include "src/video.h"
+#include "src/video_colorspace.h"
 
 using namespace std::literals;
 
@@ -129,6 +130,16 @@ namespace gamescope {
     explicit gamescope_t(const ::video::config_t &config) {
       this->width = config.width;
       this->height = config.height;
+
+      // gamescope converts to NV12 on the GPU, which leaves the encoder a plane copy instead of a CPU color conversion.
+      const auto colorspace = ::video::colorspace_from_client_config(config, false);
+      if (config.chromaSamplingType == 0 && colorspace.bit_depth == 8 &&
+          (colorspace.colorspace == ::video::colorspace_e::rec601 || colorspace.colorspace == ::video::colorspace_e::rec709)) {
+        this->pipewire.request_nv12(
+          colorspace.colorspace == ::video::colorspace_e::rec601 ? SPA_VIDEO_COLOR_MATRIX_BT601 : SPA_VIDEO_COLOR_MATRIX_BT709,
+          colorspace.full_range ? SPA_VIDEO_COLOR_RANGE_0_255 : SPA_VIDEO_COLOR_RANGE_16_235
+        );
+      }
     }
 
     int configure_stream(const std::string &display_name [[maybe_unused]], int &out_pipewire_fd, uint32_t &out_pipewire_node, uint64_t &out_pipewire_object_serial) override {

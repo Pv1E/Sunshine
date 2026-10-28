@@ -259,8 +259,17 @@ namespace video {
     sws_input_frame->data[3] = nullptr;
     sws_input_frame->linesize[3] = 0;
 
+    // NV12 at the stream's size only needs its planes copied; the capture already delivers the stream's colorimetry.
+    const bool copy_only = input_fmt == AV_PIX_FMT_NV12 && !requires_padding && sw_frame->format == AV_PIX_FMT_NV12 &&
+                           sw_frame->width == img.width && sw_frame->height == img.height;
+
     // Perform color conversion and scaling to the final size
-    auto status = sws_scale_frame(sws.get(), requires_padding ? sws_output_frame.get() : sw_frame.get(), sws_input_frame.get());
+    auto status = 0;
+    if (copy_only) {
+      av_image_copy(sw_frame->data, sw_frame->linesize, const_cast<const std::uint8_t **>(sws_input_frame->data), sws_input_frame->linesize, AV_PIX_FMT_NV12, img.width, img.height);
+    } else {
+      status = sws_scale_frame(sws.get(), requires_padding ? sws_output_frame.get() : sw_frame.get(), sws_input_frame.get());
+    }
     if (status < 0) {
       std::array<char, AV_ERROR_MAX_STRING_SIZE> string;
       BOOST_LOG(error) << "Couldn't scale frame: "sv << av_make_error_string(string.data(), AV_ERROR_MAX_STRING_SIZE, status);
@@ -316,7 +325,14 @@ namespace video {
 
   void avcodec_software_encode_device_t::apply_colorspace() {
     auto avcodec_colorspace = avcodec_colorspace_from_sunshine_colorspace(colorspace);
-    sws_setColorspaceDetails(sws.get(), sws_getCoefficients(SWS_CS_DEFAULT), 0, sws_getCoefficients(avcodec_colorspace.software_format), avcodec_colorspace.range - 1, 0, 1 << 16, 1 << 16);
+    const auto dst_coefficients = sws_getCoefficients(avcodec_colorspace.software_format);
+    const auto dst_range = avcodec_colorspace.range - 1;
+    // NV12 captures already use the stream's colorimetry, so scaling must keep it.
+    if (sws_src_format == AV_PIX_FMT_NV12) {
+      sws_setColorspaceDetails(sws.get(), dst_coefficients, dst_range, dst_coefficients, dst_range, 0, 1 << 16, 1 << 16);
+      return;
+    }
+    sws_setColorspaceDetails(sws.get(), sws_getCoefficients(SWS_CS_DEFAULT), 0, dst_coefficients, dst_range, 0, 1 << 16, 1 << 16);
   }
 
   void avcodec_software_encode_device_t::prefill() {
