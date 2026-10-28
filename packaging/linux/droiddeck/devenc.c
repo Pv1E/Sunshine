@@ -1,11 +1,16 @@
 /* Lists DroidDeck's emulated /dev/video-enc0 when /dev is read, so FFmpeg's V4L2 M2M device scan finds it.
- * The device itself lives only in DroidDeck's preload (open/ioctl/mmap/poll), which has no directory entry. */
+ * The device itself lives only in DroidDeck's preload (open/ioctl/mmap/poll), which has no directory entry.
+ * Android's SELinux policy denies listing the session's /dev, so an empty stand-in directory is read instead. */
 #define _GNU_SOURCE
 #include <dirent.h>
 #include <dlfcn.h>
+#include <errno.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define DEVENC_NAME "video-enc0"
 #define DEVENC_SLOTS 8
@@ -38,6 +43,12 @@ DIR *opendir(const char *path) {
     static DIR *(*real)(const char *);
     if (real == NULL) real = dlsym(RTLD_NEXT, "opendir");
     DIR *dir = real(path);
+    if (dir == NULL && errno == EACCES && is_dev(path) && enabled()) {
+        char empty[64];
+        snprintf(empty, sizeof empty, "/tmp/.sunshine-devenc-%d", (int)getuid());
+        if (mkdir(empty, 0700) == 0 || errno == EEXIST) dir = real(empty);
+        if (dir == NULL) errno = EACCES;
+    }
     if (dir != NULL && is_dev(path) && enabled()) {
         pthread_mutex_lock(&lock);
         struct slot *s = find(NULL);
