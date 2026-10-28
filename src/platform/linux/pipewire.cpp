@@ -91,10 +91,10 @@ namespace pipewire {
    * @brief PipeWire stream handle, format, and shared state pointer.
    */
   struct stream_data_t {
-    struct pw_stream *stream;  ///< PipeWire stream handle used for screencast frames.
+    struct pw_stream *stream = nullptr;  ///< PipeWire stream handle used for screencast frames.
     struct spa_hook stream_listener;  ///< Hook registering callbacks on the PipeWire stream.
     struct spa_video_info format;  ///< Negotiated PipeWire video format.
-    struct pw_buffer *current_buffer;  ///< PipeWire buffer currently exposed to the capture thread.
+    struct pw_buffer *current_buffer = nullptr;  ///< PipeWire buffer currently exposed to the capture thread.
     uint64_t drm_format;  ///< DRM format.
     std::shared_ptr<shared_state_t> shared;  ///< State shared between PipeWire callbacks and the capture backend.
     std::mutex frame_mutex;  ///< Synchronizes access to the current PipeWire frame.
@@ -709,8 +709,8 @@ namespace pipewire {
 
   private:
     struct pw_thread_loop *loop;
-    struct pw_context *context;
-    struct pw_core *core;
+    struct pw_context *context = nullptr;
+    struct pw_core *core = nullptr;
     struct spa_hook core_listener;
     struct stream_data_t stream_data;
     uint32_t node;
